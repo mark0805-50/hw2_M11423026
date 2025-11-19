@@ -1,20 +1,27 @@
+# -*- coding: utf-8 -*-
 import shutil, os
-
-src_train = r"C:\Users\mark1\OneDrive\Desktop\資料探勘\專案內容\第二次作業\adult\adult.data"
-src_test  = r"C:\Users\mark1\OneDrive\Desktop\資料探勘\專案內容\第二次作業\adult\adult.test"
-
-dst_train = os.path.join(os.path.dirname(src_train), "adult.train.txt")
-dst_test  = os.path.join(os.path.dirname(src_test),  "adult.test.txt")
-
-shutil.copyfile(src_train, dst_train)
-shutil.copyfile(src_test,  dst_test)
-print("已建立 adult.train.txt 與 adult.test.txt")
-
 import time
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
+src_train = r"C:\Users\mark1\OneDrive\Desktop\資料探勘\專案內容\第二次作業\adult\adult.data"
+src_test  = r"C:\Users\mark1\OneDrive\Desktop\資料探勘\專案內容\第二次作業\adult\adult.test"
+dst_train = os.path.join(os.path.dirname(src_train), "adult.train.txt")
+dst_test  = os.path.join(os.path.dirname(src_test),  "adult.test.txt")
+shutil.copyfile(src_train, dst_train)
+shutil.copyfile(src_test,  dst_test)
+print("已建立 adult.train.txt 與 adult.test.txt")
+
+# -*- coding: utf-8 -*-
+"""
+資料探勘作業：Adult 資料集回歸預測（hours-per-week）
+- 訓練：adult.train.txt
+- 測試： adult.test.txt
+- 目標：預測 hours-per-week
+- 模型：KNN、SVR、RandomForest、XGBoost
+- 指標：MAPE、MAE、RMSE、R2，並記錄訓練與預測時間
+"""
 
 train_path = r"C:\Users\mark1\OneDrive\Desktop\資料探勘\專案內容\第二次作業\adult\adult.train.txt"
 test_path  = r"C:\Users\mark1\OneDrive\Desktop\資料探勘\專案內容\第二次作業\adult\adult.test.txt"
@@ -56,7 +63,7 @@ def load_adult(filepath: str) -> pd.DataFrame:
 
     return df
 
-#  載入資料
+# 載入資料
 train_df = load_adult(train_path)
 test_df  = load_adult(test_path)
 
@@ -72,7 +79,7 @@ y_train = train_df[TARGET].astype(float)
 X_test  = test_df.drop(columns=DROP_COLS, errors="ignore")
 y_test  = test_df[TARGET].astype(float)
 
-# 數值/類別欄位自動辨識 
+# 數值/類別欄位自動辨識
 num_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
 cat_cols = X_train.columns.difference(num_cols).tolist()
 
@@ -108,7 +115,7 @@ preprocess = ColumnTransformer(
     remainder="drop"
 )
 
-#  建立四個模型 
+# 建立四個模型 
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.svm import SVR
 from sklearn.ensemble import RandomForestRegressor
@@ -146,11 +153,16 @@ models = {
 }
 
 # 將每個模型包成同一個 Pipeline（同樣的前處理器）
-pipelines = {name: Pipeline(steps=[("prep", preprocess), ("model", m)]) for name, m in models.items()}
+pipelines = {name: Pipeline(steps=[("prep", preprocess), ("model", m)])
+             for name, m in models.items()}
 
-# === 9) 評估函式 ============================================================
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import numpy as np
+# 評估函式：加入 MAPE
+from sklearn.metrics import (
+    mean_absolute_error,
+    mean_squared_error,
+    r2_score,
+    mean_absolute_percentage_error  # 新增：MAPE 指標
+)
 
 def _rmse_compat(y_true, y_pred):
     """相容舊版 sklearn：新版可用 squared=False；舊版改手動開根號。"""
@@ -175,12 +187,15 @@ def evaluate(model_name: str, pipe: Pipeline, Xtr, ytr, Xte, yte) -> dict:
     y_pred = pipe.predict(Xte)
     pred_time = time.perf_counter() - t1
 
+    # 新增 MAPE（乘 100 變百分比，例如 7.281）
+    mape = mean_absolute_percentage_error(yte, y_pred) * 100
     mae  = mean_absolute_error(yte, y_pred)
-    rmse = _rmse_compat(yte, y_pred)   # 🔧 改這裡
+    rmse = _rmse_compat(yte, y_pred)
     r2   = r2_score(yte, y_pred)
 
     return {
         "Model": model_name,
+        "MAPE": round(mape, 3),
         "MAE": round(mae, 3),
         "RMSE": round(rmse, 3),
         "R2": round(r2, 3),
@@ -188,8 +203,7 @@ def evaluate(model_name: str, pipe: Pipeline, Xtr, ytr, Xte, yte) -> dict:
         "Predict_Time(s)": round(pred_time, 3)
     }
 
-
-# 逐一評估、彙整結果 
+# 逐一評估、彙整結果
 results = []
 for name, pipe in pipelines.items():
     print(f"訓練與評估：{name} ...")
@@ -200,7 +214,7 @@ results_df = pd.DataFrame(results).sort_values(by="RMSE")  # 以 RMSE 由小到�
 print("\n=== 模型表現（以 RMSE 排序） ===")
 print(results_df.to_string(index=False))
 
-#  輸出成 CSV 方便繳交或附錄
+# 輸出成 CSV 方便繳交或附錄
 out_path = Path.cwd() / "adult_regression_results.csv"
 results_df.to_csv(out_path, index=False, encoding="utf-8-sig")
 print(f"\n已輸出結果至：{out_path.resolve()}")
