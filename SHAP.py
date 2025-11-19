@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 from xgboost import XGBRegressor
 import xgboost
 from sklearn.datasets import fetch_openml
+import matplotlib.pyplot as plt
 
 # 顯示版本與環境 
 print("========== 環境檢查 ==========")
@@ -80,6 +81,19 @@ importance_df = pd.DataFrame({
 
 print("\n特徵重要性排名：")
 print(importance_df)
+
+plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei']  # Windows
+plt.rcParams['axes.unicode_minus'] = False  # 避免負號顯示錯誤
+
+# --- SHAP 繪圖 ---
+plt.figure(figsize=(10, 6))
+plt.barh(importance_df['Feature'], importance_df['SHAP_Importance'])
+plt.xlabel("平均 SHAP 重要性 (|value|)")
+plt.ylabel("特徵")
+plt.title("SHAP 特徵重要性排名（依 SHAP 值由大到小）")
+plt.gca().invert_yaxis()  # 讓最重要的在最上面
+plt.tight_layout()
+plt.show()
 
 # 測試多個 SHAP 門檻 
 thresholds = [0.6, 0.4, 0.2]
